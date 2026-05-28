@@ -2,20 +2,49 @@ package rs.edu.raf.showtime.networking
 
 import io.ktor.client.HttpClient
 import io.ktor.client.call.body
+import io.ktor.client.request.bearerAuth
 import io.ktor.client.request.get
 import io.ktor.client.request.parameter
+import io.ktor.client.request.post
+import io.ktor.client.request.setBody
+import io.ktor.http.ContentType
+import io.ktor.http.contentType
+import rs.edu.raf.showtime.networking.model.AuthResponseApiModel
 import rs.edu.raf.showtime.networking.model.ConfigEntryApiModel
 import rs.edu.raf.showtime.networking.model.GenreApiModel
+import rs.edu.raf.showtime.networking.model.LoginRequestApiModel
 import rs.edu.raf.showtime.networking.model.MovieApiModel
 import rs.edu.raf.showtime.networking.model.MovieImagesApiModel
 import rs.edu.raf.showtime.networking.model.MovieListItemApiModel
 import rs.edu.raf.showtime.networking.model.PaginatedResponse
 import rs.edu.raf.showtime.networking.model.PersonSummaryApiModel
+import rs.edu.raf.showtime.networking.model.SignupRequestApiModel
+import rs.edu.raf.showtime.networking.model.UserApiModel
 
 class ShowtimeApi(
     private val client: HttpClient,
 ) {
     private val baseUrl = "https://rma.finlab.rs/"
+
+    suspend fun login(username: String, password: String): AuthResponseApiModel {
+        return client.post(baseUrl + "auth/login") {
+            contentType(ContentType.Application.Json)
+            setBody(LoginRequestApiModel(username = username, password = password))
+        }.body()
+    }
+
+    suspend fun signup(fullName: String, username: String, password: String): AuthResponseApiModel {
+        return client.post(baseUrl + "auth/signup") {
+            contentType(ContentType.Application.Json)
+            setBody(SignupRequestApiModel(fullName = fullName, username = username, password = password))
+        }.body()
+    }
+
+    suspend fun getProfile(token: String): UserApiModel {
+        return client.get(baseUrl + "me") {
+            bearerAuth(token)
+        }.body()
+    }
 
     suspend fun getMovies(
         page: Int = 1,
