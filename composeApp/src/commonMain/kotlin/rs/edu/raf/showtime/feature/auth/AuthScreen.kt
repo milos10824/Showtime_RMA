@@ -2,7 +2,6 @@ package rs.edu.raf.showtime.feature.auth
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Button
@@ -11,6 +10,7 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import rs.edu.raf.showtime.core.ui.AppScreen
 import rs.edu.raf.showtime.core.ui.AppTitle
@@ -21,18 +21,25 @@ fun AuthScreen(
     onIntent: (AuthIntent) -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    AppScreen{
+    AppScreen {
         Column(
-            modifier = Modifier.fillMaxWidth(),
+            modifier = modifier.fillMaxWidth(),
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
-            AppTitle(text = if (state.isSignup) "Create account" else "Welcome to Showtime")
+            AppTitle(
+                text = if (state.isSignup) {
+                    "Registracija"
+                } else {
+                    "Prijava"
+                }
+            )
+
             if (state.isSignup) {
                 OutlinedTextField(
                     value = state.fullName,
                     onValueChange = { onIntent(AuthIntent.FullNameChanged(it)) },
                     modifier = Modifier.fillMaxWidth(),
-                    label = { Text("Full name") },
+                    label = { Text("Puno ime") },
                     singleLine = true,
                 )
             }
@@ -41,7 +48,7 @@ fun AuthScreen(
                 value = state.username,
                 onValueChange = { onIntent(AuthIntent.UsernameChanged(it)) },
                 modifier = Modifier.fillMaxWidth(),
-                label = { Text("Username") },
+                label = { Text("Korisničko ime") },
                 singleLine = true,
             )
 
@@ -49,12 +56,16 @@ fun AuthScreen(
                 value = state.password,
                 onValueChange = { onIntent(AuthIntent.PasswordChanged(it)) },
                 modifier = Modifier.fillMaxWidth(),
-                label = { Text("Password") },
+                label = { Text("Lozinka") },
                 singleLine = true,
+                visualTransformation = PasswordVisualTransformation(),
             )
 
             state.error?.let { message ->
-                Text(text = message, modifier = Modifier.padding(top = 4.dp))
+                Text(
+                    text = message,
+                    modifier = Modifier.padding(top = 4.dp),
+                )
             }
 
             Button(
@@ -64,11 +75,11 @@ fun AuthScreen(
             ) {
                 Text(
                     text = if (state.isLoading) {
-                        "Please wait..."
+                        "Sačekaj..."
                     } else if (state.isSignup) {
-                        "Sign up"
+                        "Registruj se"
                     } else {
-                        "Login"
+                        "Prijavi se"
                     }
                 )
             }
@@ -80,9 +91,9 @@ fun AuthScreen(
             ) {
                 Text(
                     text = if (state.isSignup) {
-                        "Already have an account? Login"
+                        "Već imaš nalog? Prijavi se"
                     } else {
-                        "No account? Sign up"
+                        "Nemaš nalog? Registruj se"
                     }
                 )
             }
