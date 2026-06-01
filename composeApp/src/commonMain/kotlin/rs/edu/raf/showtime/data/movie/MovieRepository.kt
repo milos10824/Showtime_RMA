@@ -24,6 +24,7 @@ interface MovieRepository {
     )
 
     suspend fun refreshMovieDetails(id: String)
+    suspend fun getQuizPool(limit: Int): List<MovieListItem>
     suspend fun setFavorite(movieId: String, isFavorite: Boolean)
     suspend fun setWatchlisted(movieId: String, isWatchlisted: Boolean)
     suspend fun clearUserMovieData()

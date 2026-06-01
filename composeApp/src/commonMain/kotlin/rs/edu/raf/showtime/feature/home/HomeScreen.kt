@@ -18,6 +18,8 @@ import rs.edu.raf.showtime.core.ui.AppTitle
 fun HomeScreen(
     authData: AuthData,
     onOpenCatalog: () -> Unit,
+    onOpenProfile: () -> Unit,
+    onOpenQuiz: () -> Unit,
     onLogout: () -> Unit,
 ) {
     AppScreen {
@@ -27,21 +29,21 @@ fun HomeScreen(
         ) {
             AppTitle(text = "Showtime")
 
-            AppInfoText(
-                text = "Prijavljen korisnik: ${authData.username ?: "nepoznato"}"
-            )
+            AppInfoText(text = "Prijavljen korisnik: ${authData.username ?: "nepoznato"}")
 
-            Button(
-                onClick = onOpenCatalog,
-                modifier = Modifier.fillMaxWidth(),
-            ) {
-                Text(text = "Otvori katalog filmova")
+            Button(onClick = onOpenCatalog, modifier = Modifier.fillMaxWidth()) {
+                Text(text = "Katalog filmova")
             }
 
-            OutlinedButton(
-                onClick = onLogout,
-                modifier = Modifier.fillMaxWidth(),
-            ) {
+            Button(onClick = onOpenProfile, modifier = Modifier.fillMaxWidth()) {
+                Text(text = "Profil")
+            }
+
+            Button(onClick = onOpenQuiz, modifier = Modifier.fillMaxWidth()) {
+                Text(text = "Kviz")
+            }
+
+            OutlinedButton(onClick = onLogout, modifier = Modifier.fillMaxWidth()) {
                 Text(text = "Odjavi se")
             }
         }

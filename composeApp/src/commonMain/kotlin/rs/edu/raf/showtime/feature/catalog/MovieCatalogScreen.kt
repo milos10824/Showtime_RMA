@@ -1,5 +1,6 @@
 package rs.edu.raf.showtime.feature.catalog
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -25,13 +26,11 @@ import rs.edu.raf.showtime.domain.movie.MovieListItem
 fun MovieCatalogScreen(
     state: MovieCatalogState,
     onIntent: (MovieCatalogIntent) -> Unit,
+    onMovieClick: (String) -> Unit,
     onBack: () -> Unit,
 ) {
     AppScreen {
-        Column(
-            modifier = Modifier.fillMaxWidth(),
-            verticalArrangement = Arrangement.spacedBy(12.dp),
-        ) {
+        Column(modifier = Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             AppTitle(text = "Katalog filmova")
 
             OutlinedTextField(
@@ -42,56 +41,25 @@ fun MovieCatalogScreen(
                 singleLine = true,
             )
 
-            Row(
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-            ) {
-                Button(
-                    onClick = { onIntent(MovieCatalogIntent.Refresh) },
-                ) {
-                    Text(text = "Osveži")
-                }
-
-                OutlinedButton(onClick = onBack) {
-                    Text(text = "Nazad")
-                }
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Button(onClick = { onIntent(MovieCatalogIntent.Refresh) }) { Text(text = "Osveži") }
+                OutlinedButton(onClick = onBack) { Text(text = "Nazad") }
             }
 
-            if (state.isLoading) {
-                LoadingContent()
-            }
+            if (state.isLoading) LoadingContent()
+            state.error?.let { ErrorContent(message = it) }
+            if (!state.isLoading && state.movies.isEmpty()) EmptyContent(message = "Nema filmova za prikaz.")
 
-            state.error?.let { message ->
-                ErrorContent(message = message)
-            }
-
-            if (!state.isLoading && state.movies.isEmpty()) {
-                EmptyContent(message = "Nema filmova za prikaz.")
-            }
-
-            LazyColumn(
-                verticalArrangement = Arrangement.spacedBy(8.dp),
-            ) {
-                items(
-                    items = state.movies,
-                    key = { movie -> movie.imdbId },
-                ) { movie ->
+            LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                items(items = state.movies, key = { movie -> movie.imdbId }) { movie ->
                     MovieCatalogItem(
                         movie = movie,
+                        onClick = { onMovieClick(movie.imdbId) },
                         onFavoriteClick = {
-                            onIntent(
-                                MovieCatalogIntent.FavoriteChanged(
-                                    movieId = movie.imdbId,
-                                    value = !movie.isFavorite,
-                                )
-                            )
+                            onIntent(MovieCatalogIntent.FavoriteChanged(movie.imdbId, !movie.isFavorite))
                         },
                         onWatchlistClick = {
-                            onIntent(
-                                MovieCatalogIntent.WatchlistChanged(
-                                    movieId = movie.imdbId,
-                                    value = !movie.isWatchlisted,
-                                )
-                            )
+                            onIntent(MovieCatalogIntent.WatchlistChanged(movie.imdbId, !movie.isWatchlisted))
                         },
                     )
                 }
@@ -103,16 +71,12 @@ fun MovieCatalogScreen(
 @Composable
 private fun MovieCatalogItem(
     movie: MovieListItem,
+    onClick: () -> Unit,
     onFavoriteClick: () -> Unit,
     onWatchlistClick: () -> Unit,
 ) {
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-    ) {
-        Column(
-            modifier = Modifier.fillMaxWidth(),
-            verticalArrangement = Arrangement.spacedBy(6.dp),
-        ) {
+    Card(modifier = Modifier.fillMaxWidth().clickable(onClick = onClick)) {
+        Column(modifier = Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(6.dp)) {
             Text(text = movie.title)
 
             Text(
@@ -125,27 +89,13 @@ private fun MovieCatalogItem(
                 }
             )
 
-            Row(
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-            ) {
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 OutlinedButton(onClick = onFavoriteClick) {
-                    Text(
-                        text = if (movie.isFavorite) {
-                            "Ukloni favorite"
-                        } else {
-                            "Favorite"
-                        }
-                    )
+                    Text(text = if (movie.isFavorite) "Ukloni favorite" else "Favorite")
                 }
 
                 OutlinedButton(onClick = onWatchlistClick) {
-                    Text(
-                        text = if (movie.isWatchlisted) {
-                            "Ukloni watchlist"
-                        } else {
-                            "Watchlist"
-                        }
-                    )
+                    Text(text = if (movie.isWatchlisted) "Ukloni watchlist" else "Watchlist")
                 }
             }
         }

@@ -4,4 +4,7 @@ enum class ShowtimeRoute {
     AUTH,
     HOME,
     CATALOG,
+    DETAILS,
+    PROFILE,
+    QUIZ,
 }

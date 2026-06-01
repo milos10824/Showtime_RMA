@@ -13,13 +13,21 @@ import kotlinx.coroutines.launch
 import rs.edu.raf.showtime.core.auth.AuthData
 import rs.edu.raf.showtime.data.auth.AuthRepository
 import rs.edu.raf.showtime.data.movie.MovieRepository
+import rs.edu.raf.showtime.data.quiz.QuizRepository
 import rs.edu.raf.showtime.di.initShowtimeKoin
 import rs.edu.raf.showtime.feature.auth.AuthEffect
 import rs.edu.raf.showtime.feature.auth.AuthScreen
 import rs.edu.raf.showtime.feature.auth.AuthViewModel
 import rs.edu.raf.showtime.feature.catalog.MovieCatalogScreen
 import rs.edu.raf.showtime.feature.catalog.MovieCatalogViewModel
+import rs.edu.raf.showtime.feature.details.MovieDetailsScreen
+import rs.edu.raf.showtime.feature.details.MovieDetailsViewModel
 import rs.edu.raf.showtime.feature.home.HomeScreen
+import rs.edu.raf.showtime.feature.profile.ProfileEffect
+import rs.edu.raf.showtime.feature.profile.ProfileScreen
+import rs.edu.raf.showtime.feature.profile.ProfileViewModel
+import rs.edu.raf.showtime.feature.quiz.QuizScreen
+import rs.edu.raf.showtime.feature.quiz.QuizViewModel
 import rs.edu.raf.showtime.navigation.ShowtimeRoute
 
 @Composable
@@ -27,44 +35,25 @@ fun ShowtimeApp() {
     val scope = rememberCoroutineScope()
     val koin = remember { initShowtimeKoin() }
 
-    val authRepository = remember {
-        koin.get<AuthRepository>()
-    }
+    val authRepository = remember { koin.get<AuthRepository>() }
+    val movieRepository = remember { koin.get<MovieRepository>() }
+    val quizRepository = remember { koin.get<QuizRepository>() }
 
-    val movieRepository = remember {
-        koin.get<MovieRepository>()
-    }
-
-    val authViewModel = remember {
-        AuthViewModel(
-            repository = authRepository,
-            scope = scope,
-        )
-    }
-
-    val movieCatalogViewModel = remember {
-        MovieCatalogViewModel(
-            repository = movieRepository,
-            scope = scope,
-        )
-    }
+    val authViewModel = remember { AuthViewModel(authRepository, scope) }
+    val movieCatalogViewModel = remember { MovieCatalogViewModel(movieRepository, scope) }
+    val profileViewModel = remember { ProfileViewModel(authRepository, movieRepository, scope) }
+    val quizViewModel = remember { QuizViewModel(quizRepository, scope) }
 
     val authData by authRepository.authData.collectAsState(AuthData())
 
     var route by remember {
-        mutableStateOf(
-            if (authData.isLoggedIn) {
-                ShowtimeRoute.HOME
-            } else {
-                ShowtimeRoute.AUTH
-            }
-        )
+        mutableStateOf(if (authData.isLoggedIn) ShowtimeRoute.HOME else ShowtimeRoute.AUTH)
     }
 
+    var selectedMovieId by remember { mutableStateOf<String?>(null) }
+
     LaunchedEffect(authData.isLoggedIn) {
-        if (!authData.isLoggedIn) {
-            route = ShowtimeRoute.AUTH
-        }
+        route = if (authData.isLoggedIn) ShowtimeRoute.HOME else ShowtimeRoute.AUTH
     }
 
     LaunchedEffect(authViewModel) {
@@ -75,38 +64,71 @@ fun ShowtimeApp() {
         }
     }
 
+    LaunchedEffect(profileViewModel) {
+        profileViewModel.effect.collect { effect ->
+            when (effect) {
+                ProfileEffect.LoggedOut -> route = ShowtimeRoute.AUTH
+            }
+        }
+    }
+
     when (route) {
-        ShowtimeRoute.AUTH -> {
-            AuthScreen(
-                state = authViewModel.state.collectAsState().value,
-                onIntent = authViewModel::onIntent,
-            )
+        ShowtimeRoute.AUTH -> AuthScreen(
+            state = authViewModel.state.collectAsState().value,
+            onIntent = authViewModel::onIntent,
+        )
+
+        ShowtimeRoute.HOME -> HomeScreen(
+            authData = authData,
+            onOpenCatalog = { route = ShowtimeRoute.CATALOG },
+            onOpenProfile = { route = ShowtimeRoute.PROFILE },
+            onOpenQuiz = { route = ShowtimeRoute.QUIZ },
+            onLogout = {
+                scope.launch {
+                    authRepository.logout()
+                    movieRepository.clearUserMovieData()
+                    route = ShowtimeRoute.AUTH
+                }
+            },
+        )
+
+        ShowtimeRoute.CATALOG -> MovieCatalogScreen(
+            state = movieCatalogViewModel.state.collectAsState().value,
+            onIntent = movieCatalogViewModel::onIntent,
+            onMovieClick = { movieId ->
+                selectedMovieId = movieId
+                route = ShowtimeRoute.DETAILS
+            },
+            onBack = { route = ShowtimeRoute.HOME },
+        )
+
+        ShowtimeRoute.DETAILS -> {
+            val movieId = selectedMovieId
+            if (movieId == null) {
+                route = ShowtimeRoute.CATALOG
+            } else {
+                val detailsViewModel = remember(movieId) {
+                    MovieDetailsViewModel(movieId, movieRepository, scope)
+                }
+
+                MovieDetailsScreen(
+                    state = detailsViewModel.state.collectAsState().value,
+                    onIntent = detailsViewModel::onIntent,
+                    onBack = { route = ShowtimeRoute.CATALOG },
+                )
+            }
         }
 
-        ShowtimeRoute.HOME -> {
-            HomeScreen(
-                authData = authData,
-                onOpenCatalog = {
-                    route = ShowtimeRoute.CATALOG
-                },
-                onLogout = {
-                    scope.launch {
-                        authRepository.logout()
-                        movieRepository.clearUserMovieData()
-                        route = ShowtimeRoute.AUTH
-                    }
-                },
-            )
-        }
+        ShowtimeRoute.PROFILE -> ProfileScreen(
+            state = profileViewModel.state.collectAsState().value,
+            onIntent = profileViewModel::onIntent,
+            onBack = { route = ShowtimeRoute.HOME },
+        )
 
-        ShowtimeRoute.CATALOG -> {
-            MovieCatalogScreen(
-                state = movieCatalogViewModel.state.collectAsState().value,
-                onIntent = movieCatalogViewModel::onIntent,
-                onBack = {
-                    route = ShowtimeRoute.HOME
-                },
-            )
-        }
+        ShowtimeRoute.QUIZ -> QuizScreen(
+            state = quizViewModel.state.collectAsState().value,
+            onIntent = quizViewModel::onIntent,
+            onBack = { route = ShowtimeRoute.HOME },
+        )
     }
 }

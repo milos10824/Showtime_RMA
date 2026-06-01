@@ -62,6 +62,7 @@ class DefaultMovieRepository(
         val entities = response.items.map { item ->
             val oldMovie = movieDao.getMovie(item.imdbId)
             val newMovie = item.toEntity()
+
             newMovie.copy(
                 isFavorite = oldMovie?.isFavorite ?: false,
                 isWatchlisted = oldMovie?.isWatchlisted ?: false,
@@ -82,6 +83,10 @@ class DefaultMovieRepository(
 
         val castNames = cast.take(6).joinToString(",") { it.name }
         movieDao.upsertMovie(movie.copy(castNames = castNames))
+    }
+
+    override suspend fun getQuizPool(limit: Int): List<MovieListItem> {
+        return movieDao.getQuizPool(limit).map { it.toListItem() }
     }
 
     override suspend fun setFavorite(movieId: String, isFavorite: Boolean) {

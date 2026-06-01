@@ -1,6 +1,5 @@
 package rs.edu.raf.showtime.networking.model
 
-import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 
 @Serializable
@@ -12,9 +11,9 @@ data class MovieImagesApiModel(
 
 @Serializable
 data class MovieImageApiModel(
-    @SerialName("file_path") val filePath: String,
+    val filePath: String,
     val width: Int? = null,
     val height: Int? = null,
-    @SerialName("vote_average") val voteAverage: Double? = null,
-    @SerialName("iso_639_1") val language: String? = null,
+    val voteAverage: Double? = null,
+    val language: String? = null,
 )
