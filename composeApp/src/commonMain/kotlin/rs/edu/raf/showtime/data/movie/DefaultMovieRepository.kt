@@ -6,6 +6,7 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import rs.edu.raf.showtime.core.auth.AuthStore
+import rs.edu.raf.showtime.core.auth.UserMovieStore
 import rs.edu.raf.showtime.data.movie.mapper.toDetails
 import rs.edu.raf.showtime.data.movie.mapper.toEntity
 import rs.edu.raf.showtime.data.movie.mapper.toListItem
@@ -19,32 +20,50 @@ class DefaultMovieRepository(
     private val api: ShowtimeApi,
     private val movieDao: MovieDao,
     private val authStore: AuthStore,
+    private val userMovieStore: UserMovieStore,
 ) : MovieRepository {
 
     override fun observeMovies(): Flow<List<MovieListItem>> {
-        return movieDao.observeMovies().map { movies -> movies.map { it.toListItem() } }
+        return movieDao.observeMovies().map { movies ->
+            movies.map { it.toListItem() }
+        }
     }
 
     override fun searchMovies(query: String): Flow<List<MovieListItem>> {
-        if (query.isBlank()) return observeMovies()
-        return movieDao.searchMovies(query).map { movies -> movies.map { it.toListItem() } }
+        if (query.isBlank()) {
+            return observeMovies()
+        }
+
+        return movieDao.searchMovies(query).map { movies ->
+            movies.map { it.toListItem() }
+        }
     }
 
     override fun observeMovie(id: String): Flow<MovieDetails?> {
-        return movieDao.observeMovie(id).map { movie -> movie?.toDetails() }
+        return movieDao.observeMovie(id).map { movie ->
+            movie?.toDetails()
+        }
     }
 
     override fun observeFavorites(): Flow<List<MovieListItem>> {
-        return movieDao.observeFavorites().map { movies -> movies.map { it.toListItem() } }
+        return movieDao.observeFavorites().map { movies ->
+            movies.map { it.toListItem() }
+        }
     }
 
     override fun observeWatchlist(): Flow<List<MovieListItem>> {
-        return movieDao.observeWatchlist().map { movies -> movies.map { it.toListItem() } }
+        return movieDao.observeWatchlist().map { movies ->
+            movies.map { it.toListItem() }
+        }
     }
 
-    override fun observeFavoriteCount(): Flow<Int> = movieDao.observeFavoriteCount()
+    override fun observeFavoriteCount(): Flow<Int> {
+        return movieDao.observeFavoriteCount()
+    }
 
-    override fun observeWatchlistCount(): Flow<Int> = movieDao.observeWatchlistCount()
+    override fun observeWatchlistCount(): Flow<Int> {
+        return movieDao.observeWatchlistCount()
+    }
 
     override suspend fun refreshMovies(
         page: Int,
@@ -69,15 +88,22 @@ class DefaultMovieRepository(
             sortOrder = sortOrder,
         )
 
+        val username = currentUsername()
+        val favoriteIds = userMovieStore.getFavorites(username)
+        val watchlistIds = userMovieStore.getWatchlist(username)
+
         val entities = response.items.map { item ->
             val oldMovie = movieDao.getMovie(item.imdbId)
-            item.toEntity().copy(
-                isFavorite = oldMovie?.isFavorite ?: false,
-                isWatchlisted = oldMovie?.isWatchlisted ?: false,
+            val newMovie = item.toEntity()
+
+            newMovie.copy(
+                isFavorite = item.imdbId in favoriteIds || oldMovie?.isFavorite == true,
+                isWatchlisted = item.imdbId in watchlistIds || oldMovie?.isWatchlisted == true,
             )
         }
 
         movieDao.upsertMovies(entities)
+        restoreCurrentUserMovieData()
     }
 
     override suspend fun refreshMovieDetails(id: String) {
@@ -95,44 +121,127 @@ class DefaultMovieRepository(
             movieDao.upsertCast(cast)
             castNames = cast.take(6).joinToString(",") { it.name }
         } catch (_: Exception) {
-            // Ako cast endpoint trenutno ne uspe, detalji filma i dalje ostaju prikazani.
+            // Detalji filma ostaju prikazani i ako cast endpoint trenutno ne uspe.
         }
 
         try {
             val images = api.getMovieImages(id)
             movieDao.upsertImages(images.posters.map { it.toEntity(id, "poster") })
             movieDao.upsertImages(images.backdrops.map { it.toEntity(id, "backdrop") })
+
             posterPath = images.posters.firstOrNull()?.filePath ?: posterPath
             backdropPath = images.backdrops.firstOrNull()?.filePath ?: backdropPath
         } catch (_: Exception) {
-            // Neki filmovi nemaju poseban images odgovor. Tada koristimo poster/backdrop iz Movie detail odgovora.
+            // Ako nema posebnih slika, koristimo poster/backdrop iz osnovnog detail odgovora.
         }
 
+        val username = currentUsername()
+        val favoriteIds = userMovieStore.getFavorites(username)
+        val watchlistIds = userMovieStore.getWatchlist(username)
         val currentMovie = movieDao.getMovie(id) ?: baseMovie
+
         movieDao.upsertMovie(
             currentMovie.copy(
                 posterPath = posterPath,
                 backdropPath = backdropPath,
                 castNames = castNames,
+                isFavorite = id in favoriteIds || currentMovie.isFavorite,
+                isWatchlisted = id in watchlistIds || currentMovie.isWatchlisted,
             )
         )
     }
 
     override suspend fun syncFavorites() {
         val token = currentToken() ?: return
-        runAuthed {
+        val username = currentUsername()
+        val localIds = userMovieStore.getFavorites(username)
+
+        try {
             val favorites = api.getFavorites(token)
-            movieDao.clearFavorites()
-            saveRemoteMovieMarks(favorites, favorite = true)
+            val remoteIds = favorites.map { it.imdbId }.toSet()
+            val mergedIds = localIds + remoteIds
+
+            saveRemoteMovieMarks(
+                movies = favorites,
+                favorite = true,
+            )
+
+            userMovieStore.replaceFavorites(
+                username = username,
+                movieIds = mergedIds,
+            )
+
+            restoreCurrentUserMovieData()
+
+            (localIds - remoteIds).forEach { movieId ->
+                try {
+                    api.addFavorite(token, movieId)
+                } catch (_: Exception) {
+                    // Ako server trenutno ne prihvati, lokalni podatak ostaje sacuvan.
+                }
+            }
+        } catch (e: ClientRequestException) {
+            if (e.response.status == HttpStatusCode.Unauthorized) {
+                authStore.clear()
+                movieDao.clearUserMovieMarks()
+            }
+        } catch (_: Exception) {
+            restoreCurrentUserMovieData()
         }
     }
 
     override suspend fun syncWatchlist() {
         val token = currentToken() ?: return
-        runAuthed {
+        val username = currentUsername()
+        val localIds = userMovieStore.getWatchlist(username)
+
+        try {
             val watchlist = api.getWatchlist(token)
-            movieDao.clearWatchlist()
-            saveRemoteMovieMarks(watchlist, watchlist = true)
+            val remoteIds = watchlist.map { it.imdbId }.toSet()
+            val mergedIds = localIds + remoteIds
+
+            saveRemoteMovieMarks(
+                movies = watchlist,
+                watchlist = true,
+            )
+
+            userMovieStore.replaceWatchlist(
+                username = username,
+                movieIds = mergedIds,
+            )
+
+            restoreCurrentUserMovieData()
+
+            (localIds - remoteIds).forEach { movieId ->
+                try {
+                    api.addWatchlist(token, movieId)
+                } catch (_: Exception) {
+                    // Ako server trenutno ne prihvati, lokalni podatak ostaje sacuvan.
+                }
+            }
+        } catch (e: ClientRequestException) {
+            if (e.response.status == HttpStatusCode.Unauthorized) {
+                authStore.clear()
+                movieDao.clearUserMovieMarks()
+            }
+        } catch (_: Exception) {
+            restoreCurrentUserMovieData()
+        }
+    }
+
+    override suspend fun restoreCurrentUserMovieData() {
+        val username = currentUsername()
+        val favoriteIds = userMovieStore.getFavorites(username)
+        val watchlistIds = userMovieStore.getWatchlist(username)
+
+        movieDao.clearUserMovieMarks()
+
+        favoriteIds.forEach { movieId ->
+            movieDao.updateFavorite(movieId, true)
+        }
+
+        watchlistIds.forEach { movieId ->
+            movieDao.updateWatchlist(movieId, true)
         }
     }
 
@@ -140,7 +249,12 @@ class DefaultMovieRepository(
         var pool = movieDao.getQuizPool(limit)
 
         if (pool.size < 10) {
-            refreshMovies(page = 1, pageSize = 100)
+            refreshMovies(
+                page = 1,
+                pageSize = 100,
+                sortBy = "imdb_votes",
+                sortOrder = "desc",
+            )
             pool = movieDao.getQuizPool(limit)
         }
 
@@ -158,32 +272,58 @@ class DefaultMovieRepository(
     }
 
     override suspend fun setFavorite(movieId: String, isFavorite: Boolean) {
-        val oldValue = movieDao.getMovie(movieId)?.isFavorite ?: false
+        val username = currentUsername()
+
         movieDao.updateFavorite(movieId, isFavorite)
+        userMovieStore.setFavorite(
+            username = username,
+            movieId = movieId,
+            isFavorite = isFavorite,
+        )
 
         val token = currentToken() ?: return
+
         try {
-            runAuthed {
-                if (isFavorite) api.addFavorite(token, movieId) else api.removeFavorite(token, movieId)
+            if (isFavorite) {
+                api.addFavorite(token, movieId)
+            } else {
+                api.removeFavorite(token, movieId)
             }
-        } catch (e: Exception) {
-            movieDao.updateFavorite(movieId, oldValue)
-            throw e
+        } catch (e: ClientRequestException) {
+            if (e.response.status == HttpStatusCode.Unauthorized) {
+                authStore.clear()
+                movieDao.clearUserMovieMarks()
+            }
+        } catch (_: Exception) {
+            // Ne vracamo na staro, jer korisnik ocekuje da lokalna izmena ostane zapamcena.
         }
     }
 
     override suspend fun setWatchlisted(movieId: String, isWatchlisted: Boolean) {
-        val oldValue = movieDao.getMovie(movieId)?.isWatchlisted ?: false
+        val username = currentUsername()
+
         movieDao.updateWatchlist(movieId, isWatchlisted)
+        userMovieStore.setWatchlisted(
+            username = username,
+            movieId = movieId,
+            isWatchlisted = isWatchlisted,
+        )
 
         val token = currentToken() ?: return
+
         try {
-            runAuthed {
-                if (isWatchlisted) api.addWatchlist(token, movieId) else api.removeWatchlist(token, movieId)
+            if (isWatchlisted) {
+                api.addWatchlist(token, movieId)
+            } else {
+                api.removeWatchlist(token, movieId)
             }
-        } catch (e: Exception) {
-            movieDao.updateWatchlist(movieId, oldValue)
-            throw e
+        } catch (e: ClientRequestException) {
+            if (e.response.status == HttpStatusCode.Unauthorized) {
+                authStore.clear()
+                movieDao.clearUserMovieMarks()
+            }
+        } catch (_: Exception) {
+            // Ne vracamo na staro, jer lokalna izmena treba da ostane vidljiva.
         }
     }
 
@@ -202,6 +342,7 @@ class DefaultMovieRepository(
                 isFavorite = if (favorite) true else oldMovie?.isFavorite ?: false,
                 isWatchlisted = if (watchlist) true else oldMovie?.isWatchlisted ?: false,
             )
+
             movieDao.upsertMovie(entity)
         }
     }
@@ -210,15 +351,7 @@ class DefaultMovieRepository(
         return authStore.authData.first().token
     }
 
-    private suspend fun runAuthed(block: suspend () -> Unit) {
-        try {
-            block()
-        } catch (e: ClientRequestException) {
-            if (e.response.status == HttpStatusCode.Unauthorized) {
-                authStore.clear()
-                movieDao.clearUserMovieMarks()
-            }
-            throw e
-        }
+    private suspend fun currentUsername(): String {
+        return authStore.authData.first().username ?: "guest"
     }
 }

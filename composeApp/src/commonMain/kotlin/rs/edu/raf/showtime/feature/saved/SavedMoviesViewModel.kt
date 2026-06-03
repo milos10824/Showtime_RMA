@@ -43,13 +43,21 @@ class SavedMoviesViewModel(
     private fun refresh() {
         scope.launch {
             _state.value = _state.value.copy(isLoading = true, error = null)
+
+            repository.restoreCurrentUserMovieData()
+
             try {
                 when (type) {
                     SavedListType.FAVORITES -> repository.syncFavorites()
                     SavedListType.WATCHLIST -> repository.syncWatchlist()
                 }
+
+                repository.restoreCurrentUserMovieData()
+
                 _state.value = _state.value.copy(isLoading = false)
             } catch (_: Exception) {
+                repository.restoreCurrentUserMovieData()
+
                 _state.value = _state.value.copy(
                     isLoading = false,
                     error = "Lista nije osvežena. Prikazani su lokalni podaci.",
@@ -60,13 +68,9 @@ class SavedMoviesViewModel(
 
     private fun removeMovie(movieId: String) {
         scope.launch {
-            try {
-                when (type) {
-                    SavedListType.FAVORITES -> repository.setFavorite(movieId, false)
-                    SavedListType.WATCHLIST -> repository.setWatchlisted(movieId, false)
-                }
-            } catch (_: Exception) {
-                _state.value = _state.value.copy(error = "Film nije uklonjen sa servera.")
+            when (type) {
+                SavedListType.FAVORITES -> repository.setFavorite(movieId, false)
+                SavedListType.WATCHLIST -> repository.setWatchlisted(movieId, false)
             }
         }
     }

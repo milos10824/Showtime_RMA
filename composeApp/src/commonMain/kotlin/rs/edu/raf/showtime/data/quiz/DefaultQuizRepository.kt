@@ -2,8 +2,10 @@ package rs.edu.raf.showtime.data.quiz
 
 import io.ktor.client.plugins.ClientRequestException
 import io.ktor.http.HttpStatusCode
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.map
 import rs.edu.raf.showtime.core.auth.AuthStore
 import rs.edu.raf.showtime.data.movie.MovieRepository
@@ -20,12 +22,15 @@ class DefaultQuizRepository(
     private val authStore: AuthStore,
 ) : QuizRepository {
 
+    @OptIn(ExperimentalCoroutinesApi::class)
     override fun observeStats(): Flow<QuizStats> {
-        return quizStatsDao.observeStats().map { stats ->
-            QuizStats(
-                bestScore = stats?.bestScore ?: 0.0,
-                playedCount = stats?.playedCount ?: 0,
-            )
+        return authStore.authData.flatMapLatest { authData ->
+            quizStatsDao.observeStats(ownerId(authData.username)).map { stats ->
+                QuizStats(
+                    bestScore = stats?.bestScore ?: 0.0,
+                    playedCount = stats?.playedCount ?: 0,
+                )
+            }
         }
     }
 
@@ -34,11 +39,15 @@ class DefaultQuizRepository(
     }
 
     override suspend fun saveResult(score: Double) {
-        val current = quizStatsDao.getStats()
+        val id = currentOwnerId()
+        val current = quizStatsDao.getStats(id)
+
         val newStats = QuizStatsEntity(
+            id = id,
             bestScore = maxOf(current?.bestScore ?: 0.0, score),
             playedCount = (current?.playedCount ?: 0) + 1,
         )
+
         quizStatsDao.upsertStats(newStats)
 
         val token = authStore.authData.first().token ?: return
@@ -49,7 +58,16 @@ class DefaultQuizRepository(
                 authStore.clear()
             }
         } catch (_: Exception) {
-            // Lokalna statistika ostaje sačuvana i kada server trenutno nije dostupan.
+            // Lokalna statistika ostaje sacuvana i kada server trenutno nije dostupan.
         }
+    }
+
+    private suspend fun currentOwnerId(): Int {
+        val username = authStore.authData.first().username
+        return ownerId(username)
+    }
+
+    private fun ownerId(username: String?): Int {
+        return (username ?: "guest").hashCode()
     }
 }

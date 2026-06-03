@@ -27,18 +27,27 @@ class ProfileViewModel(
         scope.launch {
             authRepository.authData.collect { authData ->
                 _state.value = _state.value.copy(authData = authData)
+
+                if (authData.isLoggedIn) {
+                    movieRepository.restoreCurrentUserMovieData()
+                    movieRepository.syncFavorites()
+                    movieRepository.syncWatchlist()
+                }
             }
         }
+
         scope.launch {
             movieRepository.observeFavoriteCount().collect { count ->
                 _state.value = _state.value.copy(favoriteCount = count)
             }
         }
+
         scope.launch {
             movieRepository.observeWatchlistCount().collect { count ->
                 _state.value = _state.value.copy(watchlistCount = count)
             }
         }
+
         scope.launch {
             quizRepository.observeStats().collect { stats ->
                 _state.value = _state.value.copy(
@@ -47,38 +56,27 @@ class ProfileViewModel(
                 )
             }
         }
-
-        refresh()
     }
 
     fun onIntent(intent: ProfileIntent) {
         when (intent) {
-            ProfileIntent.Refresh -> refresh()
             ProfileIntent.Logout -> logout()
+            ProfileIntent.Refresh -> refresh()
         }
     }
 
     private fun refresh() {
         scope.launch {
-            _state.value = _state.value.copy(isLoading = true, error = null)
-            try {
-                authRepository.refreshProfile()
-                movieRepository.syncFavorites()
-                movieRepository.syncWatchlist()
-                _state.value = _state.value.copy(isLoading = false)
-            } catch (_: Exception) {
-                _state.value = _state.value.copy(
-                    isLoading = false,
-                    error = "Profil nije osvežen. Prikazani su lokalni podaci.",
-                )
-            }
+            movieRepository.restoreCurrentUserMovieData()
+            movieRepository.syncFavorites()
+            movieRepository.syncWatchlist()
         }
     }
 
     private fun logout() {
         scope.launch {
-            movieRepository.clearUserMovieData()
             authRepository.logout()
+            movieRepository.clearUserMovieData()
             _effect.send(ProfileEffect.LoggedOut)
         }
     }

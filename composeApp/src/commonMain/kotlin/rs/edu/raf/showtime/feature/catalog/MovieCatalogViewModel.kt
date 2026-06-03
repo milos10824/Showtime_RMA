@@ -7,7 +7,6 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import rs.edu.raf.showtime.data.movie.MovieRepository
-import rs.edu.raf.showtime.domain.movie.MovieListItem
 
 class MovieCatalogViewModel(
     private val repository: MovieRepository,
@@ -17,33 +16,29 @@ class MovieCatalogViewModel(
     val state: StateFlow<MovieCatalogState> = _state.asStateFlow()
 
     private var observeJob: Job? = null
-    private var cachedMovies: List<MovieListItem> = emptyList()
 
     init {
         observeMovies("")
         refreshMovies()
-        scope.launch {
-            try {
-                repository.syncFavorites()
-                repository.syncWatchlist()
-            } catch (_: Exception) {
-                // Katalog može da radi i ako se korisničke liste ne sinhronizuju odmah.
-            }
-        }
+        syncUserLists()
     }
 
     fun onIntent(intent: MovieCatalogIntent) {
         when (intent) {
-            MovieCatalogIntent.Refresh -> refreshMovies()
+            MovieCatalogIntent.Refresh -> {
+                refreshMovies()
+                syncUserLists()
+            }
 
             MovieCatalogIntent.NextPage -> {
-                _state.value = _state.value.copy(page = _state.value.page + 1)
+                val nextPage = _state.value.page + 1
+                _state.value = _state.value.copy(page = nextPage)
                 refreshMovies()
             }
 
             MovieCatalogIntent.PreviousPage -> {
-                val newPage = maxOf(1, _state.value.page - 1)
-                _state.value = _state.value.copy(page = newPage)
+                val previousPage = maxOf(1, _state.value.page - 1)
+                _state.value = _state.value.copy(page = previousPage)
                 refreshMovies()
             }
 
@@ -53,67 +48,74 @@ class MovieCatalogViewModel(
                     page = 1,
                     error = null,
                 )
+
                 observeMovies(intent.value)
                 refreshMovies()
             }
 
-            is MovieCatalogIntent.GenreChanged -> updateFilter {
-                copy(genre = intent.value, page = 1)
+            is MovieCatalogIntent.GenreChanged -> {
+                _state.value = _state.value.copy(
+                    genre = intent.value,
+                    page = 1,
+                    error = null,
+                )
+                refreshMovies()
             }
 
-            is MovieCatalogIntent.MinYearChanged -> updateFilter {
-                copy(minYear = intent.value, page = 1)
+            is MovieCatalogIntent.MinYearChanged -> {
+                _state.value = _state.value.copy(
+                    minYear = intent.value,
+                    page = 1,
+                    error = null,
+                )
+                refreshMovies()
             }
 
-            is MovieCatalogIntent.MaxYearChanged -> updateFilter {
-                copy(maxYear = intent.value, page = 1)
+            is MovieCatalogIntent.MaxYearChanged -> {
+                _state.value = _state.value.copy(
+                    maxYear = intent.value,
+                    page = 1,
+                    error = null,
+                )
+                refreshMovies()
             }
 
-            is MovieCatalogIntent.MinRatingChanged -> updateFilter {
-                copy(minRating = intent.value, page = 1)
+            is MovieCatalogIntent.MinRatingChanged -> {
+                _state.value = _state.value.copy(
+                    minRating = intent.value,
+                    page = 1,
+                    error = null,
+                )
+                refreshMovies()
             }
 
             is MovieCatalogIntent.SortChanged -> {
-                val order = if (intent.sortBy == "title") "asc" else "desc"
-                updateFilter {
-                    copy(
-                        sortBy = intent.sortBy,
-                        sortOrder = order,
-                        page = 1,
-                    )
-                }
+                _state.value = _state.value.copy(
+                    sortBy = intent.sortBy,
+                    page = 1,
+                    error = null,
+                )
+                refreshMovies()
             }
 
             is MovieCatalogIntent.FavoriteChanged -> {
                 scope.launch {
-                    try {
-                        repository.setFavorite(intent.movieId, intent.value)
-                    } catch (_: Exception) {
-                        _state.value = _state.value.copy(
-                            error = "Favorite promena nije sačuvana na serveru.",
-                        )
-                    }
+                    repository.setFavorite(
+                        movieId = intent.movieId,
+                        isFavorite = intent.value,
+                    )
                 }
             }
 
             is MovieCatalogIntent.WatchlistChanged -> {
                 scope.launch {
-                    try {
-                        repository.setWatchlisted(intent.movieId, intent.value)
-                    } catch (_: Exception) {
-                        _state.value = _state.value.copy(
-                            error = "Watchlist promena nije sačuvana na serveru.",
-                        )
-                    }
+                    repository.setWatchlisted(
+                        movieId = intent.movieId,
+                        isWatchlisted = intent.value,
+                    )
                 }
             }
         }
-    }
-
-    private fun updateFilter(block: MovieCatalogState.() -> MovieCatalogState) {
-        val nextState = block(_state.value).copy(error = null)
-        _state.value = nextState.copy(movies = filterMovies(cachedMovies, nextState))
-        refreshMovies()
     }
 
     private fun observeMovies(query: String) {
@@ -121,70 +123,52 @@ class MovieCatalogViewModel(
 
         observeJob = scope.launch {
             repository.searchMovies(query).collect { movies ->
-                cachedMovies = movies
-                _state.value = _state.value.copy(
-                    movies = filterMovies(movies, _state.value),
-                )
+                _state.value = _state.value.copy(movies = movies)
             }
-        }
-    }
-
-    private fun filterMovies(
-        movies: List<MovieListItem>,
-        state: MovieCatalogState,
-    ): List<MovieListItem> {
-        val minYear = state.minYear.toIntOrNull()
-        val maxYear = state.maxYear.toIntOrNull()
-        val minRating = state.minRating.toDoubleOrNull()
-
-        val filtered = movies.filter { movie ->
-            val yearOk = minYear == null || (movie.year != null && movie.year >= minYear)
-            val maxYearOk = maxYear == null || (movie.year != null && movie.year <= maxYear)
-            val ratingOk = minRating == null || (movie.imdbRating != null && movie.imdbRating >= minRating)
-            val genreOk = state.genre.id == null || movie.genres.contains(state.genre.name)
-
-            yearOk && maxYearOk && ratingOk && genreOk
-        }
-
-        return when (state.sortBy) {
-            "title" -> filtered.sortedBy { it.title }
-            "year" -> filtered.sortedByDescending { it.year ?: 0 }
-            "imdb_rating" -> filtered.sortedByDescending { it.imdbRating ?: 0.0 }
-            else -> filtered.sortedByDescending { it.imdbVotes ?: 0 }
         }
     }
 
     private fun refreshMovies() {
         scope.launch {
-            val current = _state.value
+            val currentState = _state.value
 
-            _state.value = current.copy(
+            _state.value = currentState.copy(
                 isLoading = true,
                 error = null,
             )
 
             try {
                 repository.refreshMovies(
-                    page = current.page,
+                    page = currentState.page,
                     pageSize = 20,
-                    query = current.query.trim().ifBlank { null },
-                    genreId = current.genre.id,
-                    minYear = current.minYear.toIntOrNull(),
-                    maxYear = current.maxYear.toIntOrNull(),
-                    minRating = current.minRating.toDoubleOrNull(),
-                    sortBy = current.sortBy,
-                    sortOrder = current.sortOrder,
+                    query = currentState.query.trim().ifBlank { null },
+                    genreId = currentState.genre.id,
+                    minYear = currentState.minYear.toIntOrNull(),
+                    maxYear = currentState.maxYear.toIntOrNull(),
+                    minRating = currentState.minRating.toDoubleOrNull(),
+                    sortBy = currentState.sortBy,
+                    sortOrder = currentState.sortOrder,
                 )
 
+                repository.restoreCurrentUserMovieData()
+
                 _state.value = _state.value.copy(isLoading = false)
-            } catch (e: Exception) {
-                println("Filmovi nisu osveženi: ${e::class.simpleName} - ${e.message}")
+            } catch (_: Exception) {
+                repository.restoreCurrentUserMovieData()
 
                 _state.value = _state.value.copy(
                     isLoading = false,
                     error = "Filmovi nisu osveženi. Prikazujem lokalne podatke.",
                 )
             }
+        }
+    }
+
+    private fun syncUserLists() {
+        scope.launch {
+            repository.restoreCurrentUserMovieData()
+            repository.syncFavorites()
+            repository.syncWatchlist()
         }
     }
 }

@@ -43,7 +43,9 @@ class AuthStore(
 
     suspend fun clear() {
         dataStore.edit { preferences ->
-            preferences.clear()
+            preferences.remove(Keys.token)
+            preferences.remove(Keys.username)
+            preferences.remove(Keys.fullName)
         }
     }
 }
