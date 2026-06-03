@@ -5,6 +5,8 @@ enum class ShowtimeRoute {
     HOME,
     CATALOG,
     DETAILS,
+    FAVORITES,
+    WATCHLIST,
     PROFILE,
     QUIZ,
 }

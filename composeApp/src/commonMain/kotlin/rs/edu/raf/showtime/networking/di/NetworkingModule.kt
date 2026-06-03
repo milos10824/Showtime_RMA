@@ -22,6 +22,8 @@ val networkingModule = module {
 
     single {
         HttpClient {
+            expectSuccess = true
+
             install(ContentNegotiation) {
                 json(json = get<Json>())
             }

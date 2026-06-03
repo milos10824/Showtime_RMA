@@ -36,7 +36,7 @@ interface MovieDao {
     @Query("SELECT COUNT(*) FROM movies WHERE isWatchlisted = 1")
     fun observeWatchlistCount(): Flow<Int>
 
-    @Query("SELECT * FROM movies WHERE posterPath IS NOT NULL OR backdropPath IS NOT NULL LIMIT :limit")
+    @Query("SELECT * FROM movies WHERE posterPath IS NOT NULL OR backdropPath IS NOT NULL ORDER BY imdbVotes DESC LIMIT :limit")
     suspend fun getQuizPool(limit: Int): List<MovieEntity>
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
@@ -62,6 +62,12 @@ interface MovieDao {
 
     @Query("UPDATE movies SET isWatchlisted = :isWatchlisted WHERE imdbId = :movieId")
     suspend fun updateWatchlist(movieId: String, isWatchlisted: Boolean)
+
+    @Query("UPDATE movies SET isFavorite = 0")
+    suspend fun clearFavorites()
+
+    @Query("UPDATE movies SET isWatchlisted = 0")
+    suspend fun clearWatchlist()
 
     @Query("UPDATE movies SET isFavorite = 0, isWatchlisted = 0")
     suspend fun clearUserMovieMarks()

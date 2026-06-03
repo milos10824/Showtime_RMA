@@ -9,6 +9,7 @@ val movieRepositoryModule = module {
         DefaultMovieRepository(
             api = get(),
             movieDao = get(),
+            authStore = get(),
         )
     }
 }

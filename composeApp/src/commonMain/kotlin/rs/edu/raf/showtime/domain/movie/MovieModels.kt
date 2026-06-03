@@ -5,7 +5,9 @@ data class MovieListItem(
     val title: String,
     val year: Int?,
     val posterPath: String?,
+    val genres: List<String>,
     val imdbRating: Double?,
+    val imdbVotes: Int?,
     val isFavorite: Boolean,
     val isWatchlisted: Boolean,
 )

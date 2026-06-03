@@ -16,6 +16,7 @@ datastore = "1.1.7"
 room = "2.8.4"
 sqlite = "2.6.2"
 ksp = "2.3.7"
+coil = "3.3.0"
 jetbrainsKotlinJvm = "2.3.20"
 
 [libraries]
@@ -41,6 +42,8 @@ datastore-preferences-core = { module = "androidx.datastore:datastore-preference
 androidx-room-runtime = { module = "androidx.room:room-runtime", version.ref = "room" }
 androidx-room-compiler = { module = "androidx.room:room-compiler", version.ref = "room" }
 androidx-sqlite-bundled = { module = "androidx.sqlite:sqlite-bundled", version.ref = "sqlite" }
+coil-compose = { module = "io.coil-kt.coil3:coil-compose", version.ref = "coil" }
+coil-network-ktor3 = { module = "io.coil-kt.coil3:coil-network-ktor3", version.ref = "coil" }
 koin-bom = { module = "io.insert-koin:koin-bom", version.ref = "koin-bom" }
 koin-core = { module = "io.insert-koin:koin-core" }
 

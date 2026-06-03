@@ -9,6 +9,8 @@ val quizRepositoryModule = module {
         DefaultQuizRepository(
             movieRepository = get(),
             quizStatsDao = get(),
+            api = get(),
+            authStore = get(),
         )
     }
 }

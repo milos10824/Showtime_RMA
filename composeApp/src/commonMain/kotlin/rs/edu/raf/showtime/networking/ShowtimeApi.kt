@@ -3,6 +3,7 @@ package rs.edu.raf.showtime.networking
 import io.ktor.client.HttpClient
 import io.ktor.client.call.body
 import io.ktor.client.request.bearerAuth
+import io.ktor.client.request.delete
 import io.ktor.client.request.get
 import io.ktor.client.request.parameter
 import io.ktor.client.request.post
@@ -18,6 +19,7 @@ import rs.edu.raf.showtime.networking.model.MovieImagesApiModel
 import rs.edu.raf.showtime.networking.model.MovieListItemApiModel
 import rs.edu.raf.showtime.networking.model.PaginatedResponse
 import rs.edu.raf.showtime.networking.model.PersonSummaryApiModel
+import rs.edu.raf.showtime.networking.model.QuizResultRequestApiModel
 import rs.edu.raf.showtime.networking.model.SignupRequestApiModel
 import rs.edu.raf.showtime.networking.model.UserApiModel
 
@@ -54,19 +56,32 @@ class ShowtimeApi(
         minYear: Int? = null,
         maxYear: Int? = null,
         minRating: Double? = null,
-        sortBy: String = "imdb_votes",
+        sortBy: String? = null,
         sortOrder: String = "desc",
     ): PaginatedResponse<MovieListItemApiModel> {
         return client.get(baseUrl + "movies") {
             parameter("page", page)
             parameter("page_size", pageSize)
-            parameter("query", query)
-            parameter("genre_id", genreId)
-            parameter("min_year", minYear)
-            parameter("max_year", maxYear)
-            parameter("min_rating", minRating)
-            parameter("sort_by", sortBy)
-            parameter("sort_order", sortOrder)
+
+            if (!query.isNullOrBlank()) {
+                parameter("query", query)
+            }
+            if (genreId != null) {
+                parameter("genre_id", genreId)
+            }
+            if (minYear != null) {
+                parameter("min_year", minYear)
+            }
+            if (maxYear != null) {
+                parameter("max_year", maxYear)
+            }
+            if (minRating != null) {
+                parameter("min_rating", minRating)
+            }
+            if (!sortBy.isNullOrBlank()) {
+                parameter("sort_by", sortBy)
+                parameter("sort_order", sortOrder)
+            }
         }.body()
     }
 
@@ -83,7 +98,9 @@ class ShowtimeApi(
 
     suspend fun getMovieImages(id: String, type: String? = null): MovieImagesApiModel {
         return client.get(baseUrl + "movies/$id/images") {
-            parameter("type", type)
+            if (!type.isNullOrBlank()) {
+                parameter("type", type)
+            }
         }.body()
     }
 
@@ -93,5 +110,49 @@ class ShowtimeApi(
 
     suspend fun getConfig(): List<ConfigEntryApiModel> {
         return client.get(baseUrl + "config").body()
+    }
+
+    suspend fun getFavorites(token: String): List<MovieListItemApiModel> {
+        return client.get(baseUrl + "me/favorites") {
+            bearerAuth(token)
+        }.body()
+    }
+
+    suspend fun addFavorite(token: String, movieId: String) {
+        client.post(baseUrl + "me/favorites/$movieId") {
+            bearerAuth(token)
+        }
+    }
+
+    suspend fun removeFavorite(token: String, movieId: String) {
+        client.delete(baseUrl + "me/favorites/$movieId") {
+            bearerAuth(token)
+        }
+    }
+
+    suspend fun getWatchlist(token: String): List<MovieListItemApiModel> {
+        return client.get(baseUrl + "me/watchlist") {
+            bearerAuth(token)
+        }.body()
+    }
+
+    suspend fun addWatchlist(token: String, movieId: String) {
+        client.post(baseUrl + "me/watchlist/$movieId") {
+            bearerAuth(token)
+        }
+    }
+
+    suspend fun removeWatchlist(token: String, movieId: String) {
+        client.delete(baseUrl + "me/watchlist/$movieId") {
+            bearerAuth(token)
+        }
+    }
+
+    suspend fun submitQuizResult(token: String, score: Double) {
+        client.post(baseUrl + "leaderboard") {
+            bearerAuth(token)
+            contentType(ContentType.Application.Json)
+            setBody(QuizResultRequestApiModel(score = score))
+        }
     }
 }

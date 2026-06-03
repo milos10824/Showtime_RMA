@@ -18,6 +18,8 @@ import rs.edu.raf.showtime.core.ui.AppTitle
 fun HomeScreen(
     authData: AuthData,
     onOpenCatalog: () -> Unit,
+    onOpenFavorites: () -> Unit,
+    onOpenWatchlist: () -> Unit,
     onOpenProfile: () -> Unit,
     onOpenQuiz: () -> Unit,
     onLogout: () -> Unit,
@@ -35,12 +37,20 @@ fun HomeScreen(
                 Text(text = "Katalog filmova")
             }
 
-            Button(onClick = onOpenProfile, modifier = Modifier.fillMaxWidth()) {
-                Text(text = "Profil")
+            Button(onClick = onOpenFavorites, modifier = Modifier.fillMaxWidth()) {
+                Text(text = "Favorite")
+            }
+
+            Button(onClick = onOpenWatchlist, modifier = Modifier.fillMaxWidth()) {
+                Text(text = "Watchlist")
             }
 
             Button(onClick = onOpenQuiz, modifier = Modifier.fillMaxWidth()) {
                 Text(text = "Kviz")
+            }
+
+            Button(onClick = onOpenProfile, modifier = Modifier.fillMaxWidth()) {
+                Text(text = "Profil")
             }
 
             OutlinedButton(onClick = onLogout, modifier = Modifier.fillMaxWidth()) {

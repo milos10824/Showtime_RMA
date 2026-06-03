@@ -24,10 +24,18 @@ class MovieDetailsViewModel(
         when (intent) {
             MovieDetailsIntent.Refresh -> refreshMovie()
             is MovieDetailsIntent.FavoriteChanged -> scope.launch {
-                repository.setFavorite(intent.movieId, intent.value)
+                try {
+                    repository.setFavorite(intent.movieId, intent.value)
+                } catch (_: Exception) {
+                    _state.value = _state.value.copy(error = "Favorite nije sačuvan na serveru.")
+                }
             }
             is MovieDetailsIntent.WatchlistChanged -> scope.launch {
-                repository.setWatchlisted(intent.movieId, intent.value)
+                try {
+                    repository.setWatchlisted(intent.movieId, intent.value)
+                } catch (_: Exception) {
+                    _state.value = _state.value.copy(error = "Watchlist nije sačuvan na serveru.")
+                }
             }
         }
     }

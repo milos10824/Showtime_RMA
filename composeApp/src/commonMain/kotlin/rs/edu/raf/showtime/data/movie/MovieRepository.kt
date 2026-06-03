@@ -21,10 +21,14 @@ interface MovieRepository {
         minYear: Int? = null,
         maxYear: Int? = null,
         minRating: Double? = null,
+        sortBy: String = "",
+        sortOrder: String = "desc",
     )
 
     suspend fun refreshMovieDetails(id: String)
-    suspend fun getQuizPool(limit: Int): List<MovieListItem>
+    suspend fun syncFavorites()
+    suspend fun syncWatchlist()
+    suspend fun getQuizPool(limit: Int): List<MovieDetails>
     suspend fun setFavorite(movieId: String, isFavorite: Boolean)
     suspend fun setWatchlisted(movieId: String, isWatchlisted: Boolean)
     suspend fun clearUserMovieData()

@@ -45,7 +45,9 @@ fun MovieEntity.toListItem(): MovieListItem {
         title = title,
         year = year,
         posterPath = posterPath,
+        genres = genres.split(",").map { it.trim() }.filter { it.isNotBlank() },
         imdbRating = imdbRating,
+        imdbVotes = imdbVotes,
         isFavorite = isFavorite,
         isWatchlisted = isWatchlisted,
     )

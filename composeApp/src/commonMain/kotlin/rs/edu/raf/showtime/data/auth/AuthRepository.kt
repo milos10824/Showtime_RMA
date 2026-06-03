@@ -10,5 +10,7 @@ interface AuthRepository {
 
     suspend fun signup(fullName: String, username: String, password: String)
 
+    suspend fun refreshProfile()
+
     suspend fun logout()
 }
