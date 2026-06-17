@@ -6,6 +6,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.OutlinedButton
@@ -26,7 +27,6 @@ import rs.edu.raf.showtime.core.ui.MovieImage
 fun MovieDetailsScreen(
     state: MovieDetailsState,
     onIntent: (MovieDetailsIntent) -> Unit,
-    onBack: () -> Unit,
 ) {
     AppScreen {
         Column(modifier = Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -35,34 +35,48 @@ fun MovieDetailsScreen(
 
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 Button(onClick = { onIntent(MovieDetailsIntent.Refresh) }) { Text(text = "Osveži") }
-                OutlinedButton(onClick = onBack) { Text(text = "Nazad") }
+                OutlinedButton(onClick = { onIntent(MovieDetailsIntent.BackClicked) }) { Text(text = "Nazad") }
             }
 
             if (state.isLoading) LoadingContent()
             state.error?.let { ErrorContent(message = it) }
-            if (movie == null && !state.isLoading) EmptyContent(message = "Nema detalja za izabrani film.")
+            if (state.isEmpty) EmptyContent(message = "Nema detalja za izabrani film.")
 
             movie?.let { item ->
-                MovieImage(
-                    imagePath = item.backdropPath ?: item.posterPath,
-                    contentDescription = item.title,
-                    modifier = Modifier.fillMaxWidth().height(190.dp),
-                )
+                item.backdropPath?.let { backdrop ->
+                    MovieImage(
+                        imagePath = backdrop,
+                        contentDescription = "${item.title} backdrop",
+                        modifier = Modifier.fillMaxWidth().height(190.dp),
+                    )
+                }
 
                 Card(modifier = Modifier.fillMaxWidth()) {
-                    Column(
+                    Row(
                         modifier = Modifier.fillMaxWidth().padding(12.dp),
-                        verticalArrangement = Arrangement.spacedBy(8.dp),
+                        horizontalArrangement = Arrangement.spacedBy(12.dp),
                     ) {
-                        Text(text = item.title, fontWeight = FontWeight.Bold)
-                        AppInfoText(text = "Godina: ${item.year ?: "-"}")
-                        AppInfoText(text = "Trajanje: ${item.runtime ?: "-"} min")
-                        AppInfoText(text = "IMDb: ${item.imdbRating ?: "-"}")
-                        AppInfoText(text = "Žanrovi: ${item.genres.joinToString(", ").ifBlank { "-" }}")
-                        AppInfoText(text = "Glumci: ${item.castNames.joinToString(", ").ifBlank { "-" }}")
-                        Text(text = item.overview ?: "Opis nije dostupan.")
+                        MovieImage(
+                            imagePath = item.posterPath,
+                            contentDescription = "${item.title} poster",
+                            modifier = Modifier.width(110.dp).height(165.dp),
+                        )
+                        Column(
+                            modifier = Modifier.weight(1f),
+                            verticalArrangement = Arrangement.spacedBy(8.dp),
+                        ) {
+                            Text(text = item.title, fontWeight = FontWeight.Bold)
+                            AppInfoText(text = "Godina: ${item.year ?: "-"}")
+                            AppInfoText(text = "Trajanje: ${item.runtime ?: "-"} min")
+                            AppInfoText(text = "IMDb: ${item.imdbRating ?: "-"}")
+                            AppInfoText(text = "TMDB: ${item.tmdbRating ?: "-"}")
+                            AppInfoText(text = "Žanrovi: ${item.genres.joinToString(", ").ifBlank { "-" }}")
+                        }
                     }
                 }
+
+                AppInfoText(text = "Glumci: ${item.castNames.joinToString(", ").ifBlank { "-" }}")
+                Text(text = item.overview ?: "Opis nije dostupan.")
 
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     OutlinedButton(

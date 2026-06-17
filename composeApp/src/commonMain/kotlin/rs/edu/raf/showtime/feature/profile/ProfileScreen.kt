@@ -15,14 +15,15 @@ import androidx.compose.ui.unit.dp
 import rs.edu.raf.showtime.core.ui.AppInfoText
 import rs.edu.raf.showtime.core.ui.AppScreen
 import rs.edu.raf.showtime.core.ui.AppTitle
+import rs.edu.raf.showtime.core.ui.EmptyContent
 import rs.edu.raf.showtime.core.ui.ErrorContent
 import rs.edu.raf.showtime.core.ui.LoadingContent
+import kotlin.math.roundToInt
 
 @Composable
 fun ProfileScreen(
     state: ProfileState,
     onIntent: (ProfileIntent) -> Unit,
-    onBack: () -> Unit,
 ) {
     AppScreen {
         Column(modifier = Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -30,7 +31,9 @@ fun ProfileScreen(
 
             if (state.isLoading) LoadingContent()
             state.error?.let { ErrorContent(message = it) }
+            if (state.isEmpty) EmptyContent(message = "Podaci o korisniku nisu dostupni.")
 
+            if (!state.isEmpty) {
             Card(modifier = Modifier.fillMaxWidth()) {
                 Column(modifier = Modifier.fillMaxWidth().padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     Text(text = "Korisnik", fontWeight = FontWeight.Bold)
@@ -48,11 +51,17 @@ fun ProfileScreen(
                     AppInfoText(text = "Broj kvizova: ${state.playedCount}")
                 }
             }
+            }
 
             Button(onClick = { onIntent(ProfileIntent.Refresh) }, modifier = Modifier.fillMaxWidth()) {
                 Text(text = "Osveži profil")
             }
-            OutlinedButton(onClick = onBack, modifier = Modifier.fillMaxWidth()) { Text(text = "Nazad") }
+            OutlinedButton(
+                onClick = { onIntent(ProfileIntent.BackClicked) },
+                modifier = Modifier.fillMaxWidth(),
+            ) {
+                Text(text = "Nazad")
+            }
             OutlinedButton(onClick = { onIntent(ProfileIntent.Logout) }, modifier = Modifier.fillMaxWidth()) {
                 Text(text = "Odjavi se")
             }
@@ -61,6 +70,8 @@ fun ProfileScreen(
 }
 
 private fun formatScore(score: Double): String {
-    val rounded = (score * 100).toInt() / 100.0
-    return rounded.toString()
+    val cents = (score * 100).roundToInt()
+    val whole = cents / 100
+    val fraction = (cents % 100).toString().padStart(2, '0')
+    return "$whole.$fraction"
 }

@@ -20,13 +20,19 @@ import rs.edu.raf.showtime.core.ui.AppTitle
 import rs.edu.raf.showtime.core.ui.ErrorContent
 import rs.edu.raf.showtime.core.ui.LoadingContent
 import rs.edu.raf.showtime.core.ui.MovieImage
+import rs.edu.raf.showtime.core.ui.PlatformBackHandler
+import kotlin.math.roundToInt
 
 @Composable
 fun QuizScreen(
     state: QuizState,
     onIntent: (QuizIntent) -> Unit,
-    onBack: () -> Unit,
 ) {
+    PlatformBackHandler(
+        enabled = state.isStarted && !state.isFinished,
+        onBack = { onIntent(QuizIntent.BackClicked) },
+    )
+
     AppScreen {
         Column(modifier = Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             AppTitle(text = "Kviz")
@@ -40,7 +46,10 @@ fun QuizScreen(
                 Button(onClick = { onIntent(QuizIntent.Start) }, modifier = Modifier.fillMaxWidth()) {
                     Text(text = "Pokreni kviz")
                 }
-                OutlinedButton(onClick = onBack, modifier = Modifier.fillMaxWidth()) {
+                OutlinedButton(
+                    onClick = { onIntent(QuizIntent.BackClicked) },
+                    modifier = Modifier.fillMaxWidth(),
+                ) {
                     Text(text = "Nazad")
                 }
             }
@@ -50,7 +59,10 @@ fun QuizScreen(
                 Button(onClick = { onIntent(QuizIntent.Start) }, modifier = Modifier.fillMaxWidth()) {
                     Text(text = "Igraj ponovo")
                 }
-                OutlinedButton(onClick = onBack, modifier = Modifier.fillMaxWidth()) {
+                OutlinedButton(
+                    onClick = { onIntent(QuizIntent.BackClicked) },
+                    modifier = Modifier.fillMaxWidth(),
+                ) {
                     Text(text = "Nazad")
                 }
             }
@@ -70,21 +82,20 @@ fun QuizScreen(
     if (state.showAbandonDialog) {
         AlertDialog(
             onDismissRequest = { onIntent(QuizIntent.CancelAbandon) },
-            title = { Text(text = "Prekini kviz?") },
-            text = { Text(text = "Napredak u ovoj sesiji neće biti sačuvan.") },
+            title = { Text(text = "Odustati od kviza?") },
+            text = { Text(text = "Dosadašnji rezultat neće biti sačuvan.") },
             confirmButton = {
                 Button(
                     onClick = {
                         onIntent(QuizIntent.ConfirmAbandon)
-                        onBack()
                     },
                 ) {
-                    Text(text = "Da")
+                    Text(text = "Odustani")
                 }
             },
             dismissButton = {
                 OutlinedButton(onClick = { onIntent(QuizIntent.CancelAbandon) }) {
-                    Text(text = "Ne")
+                    Text(text = "Nastavi kviz")
                 }
             },
         )
@@ -110,7 +121,11 @@ private fun QuestionContent(
 
             MovieImage(
                 imagePath = question.imagePath,
-                contentDescription = question.title,
+                contentDescription = if (question.type == QuizQuestionType.GUESS_MOVIE) {
+                    "Slika filma za pogađanje"
+                } else {
+                    question.title
+                },
                 modifier = Modifier.fillMaxWidth().height(170.dp),
             )
 
@@ -163,6 +178,8 @@ private fun optionText(answer: String, state: QuizState): String {
 }
 
 private fun formatScore(score: Double): String {
-    val rounded = (score * 100).toInt() / 100.0
-    return rounded.toString()
+    val cents = (score * 100).roundToInt()
+    val whole = cents / 100
+    val fraction = (cents % 100).toString().padStart(2, '0')
+    return "$whole.$fraction"
 }

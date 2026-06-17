@@ -10,15 +10,22 @@ import rs.edu.raf.showtime.networking.model.MovieImageApiModel
 import rs.edu.raf.showtime.networking.model.MovieListItemApiModel
 import rs.edu.raf.showtime.networking.model.PersonSummaryApiModel
 
-fun MovieListItemApiModel.toEntity(): MovieEntity {
+fun MovieListItemApiModel.toEntity(previous: MovieEntity? = null): MovieEntity {
     return MovieEntity(
         imdbId = imdbId,
         title = title,
         year = year,
+        runtime = previous?.runtime,
+        overview = previous?.overview,
         posterPath = posterPath,
+        backdropPath = previous?.backdropPath,
         genres = genres.joinToString(",") { it.name },
+        castNames = previous?.castNames.orEmpty(),
         imdbRating = imdbRating,
         imdbVotes = imdbVotes,
+        tmdbRating = tmdbRating ?: previous?.tmdbRating,
+        isFavorite = previous?.isFavorite ?: false,
+        isWatchlisted = previous?.isWatchlisted ?: false,
     )
 }
 
@@ -34,6 +41,7 @@ fun MovieApiModel.toEntity(previous: MovieEntity?): MovieEntity {
         genres = genres.joinToString(",") { it.name },
         imdbRating = imdbRating,
         imdbVotes = imdbVotes,
+        tmdbRating = tmdbRating,
         isFavorite = previous?.isFavorite ?: false,
         isWatchlisted = previous?.isWatchlisted ?: false,
     )
@@ -48,6 +56,7 @@ fun MovieEntity.toListItem(): MovieListItem {
         genres = genres.split(",").map { it.trim() }.filter { it.isNotBlank() },
         imdbRating = imdbRating,
         imdbVotes = imdbVotes,
+        tmdbRating = tmdbRating,
         isFavorite = isFavorite,
         isWatchlisted = isWatchlisted,
     )
@@ -66,6 +75,7 @@ fun MovieEntity.toDetails(): MovieDetails {
         castNames = castNames.split(",").map { it.trim() }.filter { it.isNotBlank() },
         imdbRating = imdbRating,
         imdbVotes = imdbVotes,
+        tmdbRating = tmdbRating,
         isFavorite = isFavorite,
         isWatchlisted = isWatchlisted,
     )
@@ -78,6 +88,20 @@ fun PersonSummaryApiModel.toEntity(movieId: String): CastMemberEntity {
         name = name,
         profilePath = profilePath,
     )
+}
+
+fun PersonSummaryApiModel.isActor(): Boolean {
+    if (department.equals("Acting", ignoreCase = true)) {
+        return true
+    }
+
+    return professions
+        ?.split(",")
+        ?.any { profession ->
+            profession.trim().equals("actor", ignoreCase = true) ||
+                profession.trim().equals("actress", ignoreCase = true)
+        }
+        ?: false
 }
 
 fun MovieImageApiModel.toEntity(movieId: String, type: String): MovieImageEntity {

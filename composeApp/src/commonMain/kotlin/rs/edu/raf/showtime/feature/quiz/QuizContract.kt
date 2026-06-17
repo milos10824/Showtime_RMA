@@ -31,6 +31,7 @@ data class QuizState(
     val isStarted: Boolean = false,
     val isFinished: Boolean = false,
     val showAbandonDialog: Boolean = false,
+    val isOffline: Boolean = false,
     val error: String? = null,
 ) {
     val currentQuestion: QuizQuestion?
@@ -38,6 +39,9 @@ data class QuizState(
 
     val wrongCount: Int
         get() = if (isFinished) questions.size - correctCount else currentIndex - correctCount
+
+    val isEmpty: Boolean
+        get() = !isLoading && !isStarted && !isFinished && questions.isEmpty()
 }
 
 sealed interface QuizIntent {
@@ -46,4 +50,9 @@ sealed interface QuizIntent {
     data object AbandonClicked : QuizIntent
     data object CancelAbandon : QuizIntent
     data object ConfirmAbandon : QuizIntent
+    data object BackClicked : QuizIntent
+}
+
+sealed interface QuizEffect {
+    data object Close : QuizEffect
 }

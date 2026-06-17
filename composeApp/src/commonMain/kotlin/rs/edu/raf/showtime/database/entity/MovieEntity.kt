@@ -17,6 +17,7 @@ data class MovieEntity(
     val castNames: String = "",
     val imdbRating: Double? = null,
     val imdbVotes: Int? = null,
+    val tmdbRating: Double? = null,
     val isFavorite: Boolean = false,
     val isWatchlisted: Boolean = false,
 )

@@ -1,25 +1,38 @@
 package rs.edu.raf.showtime.feature.auth
 
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.channels.Channel
+import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewModelScope
+import io.ktor.client.plugins.ClientRequestException
+import io.ktor.http.HttpStatusCode
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.launch
 import rs.edu.raf.showtime.data.auth.AuthRepository
 
 class AuthViewModel(
     private val repository: AuthRepository,
-    private val scope: CoroutineScope,
-) {
+) : ViewModel() {
     private val _state = MutableStateFlow(AuthState())
     val state: StateFlow<AuthState> = _state.asStateFlow()
 
-    private val _effect = Channel<AuthEffect>(Channel.BUFFERED)
-    val effect = _effect.receiveAsFlow()
+    private val events = MutableSharedFlow<AuthIntent>()
+    private val _effect = MutableSharedFlow<AuthEffect>()
+    val effect = _effect.asSharedFlow()
 
     fun onIntent(intent: AuthIntent) {
+        viewModelScope.launch { events.emit(intent) }
+    }
+
+    init {
+        viewModelScope.launch {
+            events.collect { intent -> handleIntent(intent) }
+        }
+    }
+
+    private fun handleIntent(intent: AuthIntent) {
         if (intent == AuthIntent.Submit) {
             submit()
             return
@@ -37,7 +50,7 @@ class AuthViewModel(
             return
         }
 
-        scope.launch {
+        viewModelScope.launch {
             _state.value = AuthReducer.loading(currentState)
 
             try {
@@ -55,11 +68,12 @@ class AuthViewModel(
                 }
 
                 _state.value = AuthReducer.idle(_state.value)
-                _effect.send(AuthEffect.OpenHome)
-            } catch (_: Exception) {
+                _effect.emit(AuthEffect.OpenHome)
+            } catch (e: Exception) {
                 _state.value = AuthReducer.error(
                     state = _state.value,
-                    message = "Prijava nije uspela. Proveri podatke i internet konekciju.",
+                    message = authErrorMessage(e, currentState.isSignup),
+                    isOffline = e !is ClientRequestException,
                 )
             }
         }
@@ -81,5 +95,23 @@ class AuthViewModel(
         }
 
         return null
+    }
+
+    private fun authErrorMessage(error: Throwable, isSignup: Boolean): String {
+        if (error is ClientRequestException) {
+            return when (error.response.status) {
+                HttpStatusCode.Conflict -> "Username je zauzet."
+                HttpStatusCode.Unauthorized,
+                HttpStatusCode.Forbidden -> "Nevalidno korisničko ime ili lozinka."
+                HttpStatusCode.BadRequest -> if (isSignup) {
+                    "Registracija nije validna. Proveri puno ime, username i lozinku."
+                } else {
+                    "Prijava nije validna. Proveri username i lozinku."
+                }
+                else -> "Server trenutno nije prihvatio zahtev. Pokušaj ponovo."
+            }
+        }
+
+        return "Mrežna greška. Proveri internet konekciju i pokušaj ponovo."
     }
 }

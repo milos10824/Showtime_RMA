@@ -13,9 +13,13 @@ object AuthReducer {
         }
     }
 
-    fun loading(state: AuthState): AuthState = state.copy(isLoading = true, error = null)
+    fun loading(state: AuthState): AuthState = state.copy(isLoading = true, isOffline = false, error = null)
 
-    fun error(state: AuthState, message: String): AuthState = state.copy(isLoading = false, error = message)
+    fun error(
+        state: AuthState,
+        message: String,
+        isOffline: Boolean = false,
+    ): AuthState = state.copy(isLoading = false, isOffline = isOffline, error = message)
 
-    fun idle(state: AuthState): AuthState = state.copy(isLoading = false)
+    fun idle(state: AuthState): AuthState = state.copy(isLoading = false, isOffline = false)
 }

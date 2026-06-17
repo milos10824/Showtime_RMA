@@ -40,7 +40,7 @@ fun MovieImage(
         AsyncImage(
             model = imageUrl,
             contentDescription = contentDescription,
-            modifier = modifier.clip(RoundedCornerShape(12.dp)),
+            modifier = modifier.clip(RoundedCornerShape(8.dp)),
             contentScale = ContentScale.Crop,
             onError = {
                 failed = true
@@ -56,7 +56,7 @@ private fun MovieImagePlaceholder(
 ) {
     Box(
         modifier = modifier
-            .clip(RoundedCornerShape(12.dp))
+            .clip(RoundedCornerShape(8.dp))
             .background(MaterialTheme.colorScheme.surfaceVariant),
         contentAlignment = Alignment.Center,
     ) {

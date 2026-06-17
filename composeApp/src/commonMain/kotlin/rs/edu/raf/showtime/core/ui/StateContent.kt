@@ -1,35 +1,60 @@
 package rs.edu.raf.showtime.core.ui
 
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 
 @Composable
 fun LoadingContent() {
-    CircularProgressIndicator()
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(16.dp),
+        contentAlignment = Alignment.Center,
+    ) {
+        CircularProgressIndicator()
+    }
 }
 
 @Composable
 fun ErrorContent(message: String) {
-    Text(
-        text = message,
-        color = MaterialTheme.colorScheme.error,
-        textAlign = TextAlign.Center,
-        modifier = Modifier.padding(16.dp)
-    )
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(8.dp),
+        color = MaterialTheme.colorScheme.errorContainer,
+    ) {
+        Text(
+            text = message,
+            color = MaterialTheme.colorScheme.onErrorContainer,
+            textAlign = TextAlign.Start,
+            modifier = Modifier.padding(12.dp),
+        )
+    }
 }
 
 @Composable
 fun EmptyContent(message: String) {
-    Text(
-        text = message,
-        style = MaterialTheme.typography.bodyMedium,
-        textAlign = TextAlign.Center,
-        modifier = Modifier.padding(16.dp)
-    )
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(8.dp),
+        color = MaterialTheme.colorScheme.surfaceVariant,
+    ) {
+        Text(
+            text = message,
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            textAlign = TextAlign.Start,
+            modifier = Modifier.padding(12.dp),
+        )
+    }
 }

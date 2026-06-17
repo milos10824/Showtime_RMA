@@ -1,11 +1,13 @@
 package rs.edu.raf.showtime.feature.profile
 
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.channels.Channel
+import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewModelScope
+import io.ktor.client.plugins.ClientRequestException
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.launch
 import rs.edu.raf.showtime.data.auth.AuthRepository
 import rs.edu.raf.showtime.data.movie.MovieRepository
@@ -15,69 +17,88 @@ class ProfileViewModel(
     private val authRepository: AuthRepository,
     private val movieRepository: MovieRepository,
     private val quizRepository: QuizRepository,
-    private val scope: CoroutineScope,
-) {
+) : ViewModel() {
     private val _state = MutableStateFlow(ProfileState())
     val state: StateFlow<ProfileState> = _state.asStateFlow()
 
-    private val _effect = Channel<ProfileEffect>(Channel.BUFFERED)
-    val effect = _effect.receiveAsFlow()
+    private val events = MutableSharedFlow<ProfileIntent>()
+    private val _effect = MutableSharedFlow<ProfileEffect>()
+    val effect = _effect.asSharedFlow()
 
     init {
-        scope.launch {
+        observeEvents()
+        viewModelScope.launch {
             authRepository.authData.collect { authData ->
-                _state.value = _state.value.copy(authData = authData)
-
-                if (authData.isLoggedIn) {
-                    movieRepository.restoreCurrentUserMovieData()
-                    movieRepository.syncFavorites()
-                    movieRepository.syncWatchlist()
-                }
+                _state.value = ProfileReducer.authChanged(_state.value, authData)
             }
         }
 
-        scope.launch {
+        viewModelScope.launch {
             movieRepository.observeFavoriteCount().collect { count ->
-                _state.value = _state.value.copy(favoriteCount = count)
+                _state.value = ProfileReducer.favoriteCountChanged(_state.value, count)
             }
         }
 
-        scope.launch {
+        viewModelScope.launch {
             movieRepository.observeWatchlistCount().collect { count ->
-                _state.value = _state.value.copy(watchlistCount = count)
+                _state.value = ProfileReducer.watchlistCountChanged(_state.value, count)
             }
         }
 
-        scope.launch {
+        viewModelScope.launch {
             quizRepository.observeStats().collect { stats ->
-                _state.value = _state.value.copy(
-                    bestScore = stats.bestScore,
-                    playedCount = stats.playedCount,
-                )
+                _state.value = ProfileReducer.statsChanged(_state.value, stats)
             }
         }
+
+        refresh()
     }
 
     fun onIntent(intent: ProfileIntent) {
+        viewModelScope.launch { events.emit(intent) }
+    }
+
+    private fun observeEvents() {
+        viewModelScope.launch {
+            events.collect { intent -> handleIntent(intent) }
+        }
+    }
+
+    private fun handleIntent(intent: ProfileIntent) {
         when (intent) {
             ProfileIntent.Logout -> logout()
             ProfileIntent.Refresh -> refresh()
+            ProfileIntent.BackClicked -> viewModelScope.launch {
+                _effect.emit(ProfileEffect.Close)
+            }
         }
     }
 
     private fun refresh() {
-        scope.launch {
-            movieRepository.restoreCurrentUserMovieData()
-            movieRepository.syncFavorites()
-            movieRepository.syncWatchlist()
+        viewModelScope.launch {
+            _state.value = ProfileReducer.loading(_state.value)
+
+            try {
+                authRepository.refreshProfile()
+                movieRepository.syncFavorites()
+                movieRepository.syncWatchlist()
+                _state.value = ProfileReducer.idle(_state.value)
+            } catch (error: Exception) {
+                _state.value = if (error is ClientRequestException) {
+                    ProfileReducer.error(_state.value, "Server nije osvežio profil.")
+                } else {
+                    ProfileReducer.offline(
+                        state = _state.value,
+                        message = "Profil nije osvežen. Prikazujem lokalne podatke.",
+                    )
+                }
+            }
         }
     }
 
     private fun logout() {
-        scope.launch {
+        viewModelScope.launch {
             authRepository.logout()
-            movieRepository.clearUserMovieData()
-            _effect.send(ProfileEffect.LoggedOut)
         }
     }
 }

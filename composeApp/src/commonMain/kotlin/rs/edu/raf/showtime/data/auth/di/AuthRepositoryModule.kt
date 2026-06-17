@@ -9,6 +9,7 @@ val authRepositoryModule = module {
         DefaultAuthRepository(
             api = get(),
             authStore = get(),
+            sessionManager = get(),
         )
     }
 }

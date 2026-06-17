@@ -1,5 +1,6 @@
 package rs.edu.raf.showtime.core.ui
 
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -13,9 +14,10 @@ import androidx.compose.ui.unit.dp
 fun AppTitle(text: String) {
     Text(
         text = text,
-        style = MaterialTheme.typography.headlineLarge,
+        style = MaterialTheme.typography.headlineMedium,
         fontWeight = FontWeight.Bold,
-        textAlign = TextAlign.Center
+        textAlign = TextAlign.Start,
+        modifier = Modifier.fillMaxWidth(),
     )
 }
 
@@ -24,7 +26,10 @@ fun AppInfoText(text: String) {
     Text(
         text = text,
         style = MaterialTheme.typography.bodyMedium,
-        textAlign = TextAlign.Center,
-        modifier = Modifier.padding(top = 8.dp)
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+        textAlign = TextAlign.Start,
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(top = 4.dp),
     )
 }

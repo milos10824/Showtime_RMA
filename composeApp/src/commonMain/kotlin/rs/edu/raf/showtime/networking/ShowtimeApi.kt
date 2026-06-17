@@ -2,7 +2,6 @@ package rs.edu.raf.showtime.networking
 
 import io.ktor.client.HttpClient
 import io.ktor.client.call.body
-import io.ktor.client.request.bearerAuth
 import io.ktor.client.request.delete
 import io.ktor.client.request.get
 import io.ktor.client.request.parameter
@@ -24,28 +23,27 @@ import rs.edu.raf.showtime.networking.model.SignupRequestApiModel
 import rs.edu.raf.showtime.networking.model.UserApiModel
 
 class ShowtimeApi(
-    private val client: HttpClient,
+    private val publicClient: HttpClient,
+    private val authenticatedClient: HttpClient,
 ) {
     private val baseUrl = "https://rma.finlab.rs/"
 
     suspend fun login(username: String, password: String): AuthResponseApiModel {
-        return client.post(baseUrl + "auth/login") {
+        return publicClient.post(baseUrl + "auth/login") {
             contentType(ContentType.Application.Json)
             setBody(LoginRequestApiModel(username = username, password = password))
         }.body()
     }
 
     suspend fun signup(fullName: String, username: String, password: String): AuthResponseApiModel {
-        return client.post(baseUrl + "auth/signup") {
+        return publicClient.post(baseUrl + "auth/signup") {
             contentType(ContentType.Application.Json)
             setBody(SignupRequestApiModel(fullName = fullName, username = username, password = password))
         }.body()
     }
 
-    suspend fun getProfile(token: String): UserApiModel {
-        return client.get(baseUrl + "me") {
-            bearerAuth(token)
-        }.body()
+    suspend fun getProfile(): UserApiModel {
+        return authenticatedClient.get(baseUrl + "me").body()
     }
 
     suspend fun getMovies(
@@ -59,98 +57,76 @@ class ShowtimeApi(
         sortBy: String? = null,
         sortOrder: String = "desc",
     ): PaginatedResponse<MovieListItemApiModel> {
-        return client.get(baseUrl + "movies") {
+        return publicClient.get(baseUrl + "movies") {
             parameter("page", page)
             parameter("page_size", pageSize)
-
-            if (!query.isNullOrBlank()) {
-                parameter("query", query)
-            }
-            if (genreId != null) {
-                parameter("genre_id", genreId)
-            }
-            if (minYear != null) {
-                parameter("min_year", minYear)
-            }
-            if (maxYear != null) {
-                parameter("max_year", maxYear)
-            }
-            if (minRating != null) {
-                parameter("min_rating", minRating)
-            }
-            if (!sortBy.isNullOrBlank()) {
-                parameter("sort_by", sortBy)
+            query?.takeIf { it.isNotBlank() }?.let { parameter("query", it) }
+            genreId?.let { parameter("genre_id", it) }
+            minYear?.let { parameter("min_year", it) }
+            maxYear?.let { parameter("max_year", it) }
+            minRating?.let { parameter("min_rating", it) }
+            sortBy?.takeIf { it.isNotBlank() }?.let {
+                parameter("sort_by", it)
                 parameter("sort_order", sortOrder)
             }
         }.body()
     }
 
     suspend fun getMovie(id: String): MovieApiModel {
-        return client.get(baseUrl + "movies/$id").body()
+        return publicClient.get(baseUrl + "movies/$id").body()
     }
 
-    suspend fun getMovieCast(id: String, page: Int = 1, pageSize: Int = 20): PaginatedResponse<PersonSummaryApiModel> {
-        return client.get(baseUrl + "movies/$id/cast") {
+    suspend fun getMovieCast(
+        id: String,
+        page: Int = 1,
+        pageSize: Int = 20,
+    ): PaginatedResponse<PersonSummaryApiModel> {
+        return publicClient.get(baseUrl + "movies/$id/cast") {
             parameter("page", page)
             parameter("page_size", pageSize)
         }.body()
     }
 
     suspend fun getMovieImages(id: String, type: String? = null): MovieImagesApiModel {
-        return client.get(baseUrl + "movies/$id/images") {
-            if (!type.isNullOrBlank()) {
-                parameter("type", type)
-            }
+        return publicClient.get(baseUrl + "movies/$id/images") {
+            type?.takeIf { it.isNotBlank() }?.let { parameter("type", it) }
         }.body()
     }
 
     suspend fun getGenres(): List<GenreApiModel> {
-        return client.get(baseUrl + "genres").body()
+        return publicClient.get(baseUrl + "genres").body()
     }
 
     suspend fun getConfig(): List<ConfigEntryApiModel> {
-        return client.get(baseUrl + "config").body()
+        return publicClient.get(baseUrl + "config").body()
     }
 
-    suspend fun getFavorites(token: String): List<MovieListItemApiModel> {
-        return client.get(baseUrl + "me/favorites") {
-            bearerAuth(token)
-        }.body()
+    suspend fun getFavorites(): List<MovieListItemApiModel> {
+        return authenticatedClient.get(baseUrl + "me/favorites").body()
     }
 
-    suspend fun addFavorite(token: String, movieId: String) {
-        client.post(baseUrl + "me/favorites/$movieId") {
-            bearerAuth(token)
-        }
+    suspend fun addFavorite(movieId: String) {
+        authenticatedClient.post(baseUrl + "me/favorites/$movieId")
     }
 
-    suspend fun removeFavorite(token: String, movieId: String) {
-        client.delete(baseUrl + "me/favorites/$movieId") {
-            bearerAuth(token)
-        }
+    suspend fun removeFavorite(movieId: String) {
+        authenticatedClient.delete(baseUrl + "me/favorites/$movieId")
     }
 
-    suspend fun getWatchlist(token: String): List<MovieListItemApiModel> {
-        return client.get(baseUrl + "me/watchlist") {
-            bearerAuth(token)
-        }.body()
+    suspend fun getWatchlist(): List<MovieListItemApiModel> {
+        return authenticatedClient.get(baseUrl + "me/watchlist").body()
     }
 
-    suspend fun addWatchlist(token: String, movieId: String) {
-        client.post(baseUrl + "me/watchlist/$movieId") {
-            bearerAuth(token)
-        }
+    suspend fun addWatchlist(movieId: String) {
+        authenticatedClient.post(baseUrl + "me/watchlist/$movieId")
     }
 
-    suspend fun removeWatchlist(token: String, movieId: String) {
-        client.delete(baseUrl + "me/watchlist/$movieId") {
-            bearerAuth(token)
-        }
+    suspend fun removeWatchlist(movieId: String) {
+        authenticatedClient.delete(baseUrl + "me/watchlist/$movieId")
     }
 
-    suspend fun submitQuizResult(token: String, score: Double) {
-        client.post(baseUrl + "leaderboard") {
-            bearerAuth(token)
+    suspend fun submitQuizResult(score: Double) {
+        authenticatedClient.post(baseUrl + "leaderboard") {
             contentType(ContentType.Application.Json)
             setBody(QuizResultRequestApiModel(score = score))
         }

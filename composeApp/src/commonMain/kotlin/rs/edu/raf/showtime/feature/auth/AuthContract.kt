@@ -6,8 +6,12 @@ data class AuthState(
     val username: String = "",
     val password: String = "",
     val isLoading: Boolean = false,
+    val isOffline: Boolean = false,
     val error: String? = null,
-)
+) {
+    val isEmpty: Boolean
+        get() = username.isBlank() && password.isBlank() && (!isSignup || fullName.isBlank())
+}
 
 sealed interface AuthIntent {
     data class FullNameChanged(val value: String) : AuthIntent

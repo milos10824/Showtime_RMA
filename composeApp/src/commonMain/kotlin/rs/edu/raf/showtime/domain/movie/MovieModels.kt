@@ -8,6 +8,7 @@ data class MovieListItem(
     val genres: List<String>,
     val imdbRating: Double?,
     val imdbVotes: Int?,
+    val tmdbRating: Double?,
     val isFavorite: Boolean,
     val isWatchlisted: Boolean,
 )
@@ -24,6 +25,7 @@ data class MovieDetails(
     val castNames: List<String>,
     val imdbRating: Double?,
     val imdbVotes: Int?,
+    val tmdbRating: Double?,
     val isFavorite: Boolean,
     val isWatchlisted: Boolean,
 )

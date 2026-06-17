@@ -15,6 +15,8 @@ data class MovieListItemApiModel(
     val imdbRating: Double? = null,
     @JsonNames("imdb_votes")
     val imdbVotes: Int? = null,
+    @JsonNames("tmdb_rating")
+    val tmdbRating: Double? = null,
     @JsonNames("poster_path")
     val posterPath: String? = null,
     val genres: List<GenreApiModel> = emptyList(),
